@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+    <metadata>
+        <id>jqGridWebApi</id>
+        <version>1.0.5</version>
+        <title>jqGrid extension for WebApi</title>
+        <authors>Mark Babayev</authors>
+        <owners>Mark Babayev</owners>
+        <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
+        <projectUrl>https://github.com/mirik123/jqGridWebApi</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>My package description.</description>
+        <summary>My package summary.</summary>
+        <language>en-US</language>
+        <tags>WebApi, jqGrid</tags>
+        <dependencies>
+            <group targetFramework=".NETFramework4.0">
+                <dependency id="Microsoft.AspNet.WebApi.Core" version="4.0.30506.0" />
+            </group>
+            <group targetFramework=".NETFramework4.5">
+                <dependency id="Microsoft.AspNet.WebApi.Core" version="5.2.2" />
+            </group>
+        </dependencies>
+        <frameworkAssemblies>
+            <frameworkAssembly assemblyName="System.Web" targetFramework=".NETFramework4.0" />
+            <frameworkAssembly assemblyName="System.Web" targetFramework=".NETFramework4.5" />
+        </frameworkAssemblies>
+    </metadata>
+    <files>
+        <file src="content\jqGridExtension.cs" target="content\jqGridExtension.cs" />
+        <file src="content\jqGridExtension.readme.txt" target="content\jqGridExtension.readme.txt" />
+        <file src="tools\init.ps1" target="tools\init.ps1" />
+        <file src="tools\install.ps1" target="tools\install.ps1" />
+    </files>
+</package>
