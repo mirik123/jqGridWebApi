@@ -199,7 +199,7 @@ namespace jqGridExtension
                 Type t; 
                 object value = null;
 
-                if (memberAccess.Type.Namespace.StartsWith("MvcApplication6"))
+                if (memberAccess.Type.Namespace.StartsWith("jqGridExtension"))
                 {
                     memberAccess = MemberExpression.Property(memberAccess, "Id");
                     t = memberAccess.Type;
