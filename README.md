@@ -3,7 +3,7 @@ It emulates the set of the OData provider actions like filtering/sorting/orderin
 The WebApi Controller receives filtering/sorting/ordering data from the client side and transparently appends it to LINQ-to-Entities query.
 This project is based on: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
 
-
+```
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,3 +44,4 @@ namespace jqGridExtension
         }
     }
 }
+```
