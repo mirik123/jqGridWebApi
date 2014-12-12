@@ -41,7 +41,7 @@ namespace jqGridExtension
                 total = (int)Math.Ceiling((double)count / grid.PageSize),
                 page = grid.PageIndex,
                 records = count,
-                rows = model.ToArray()
+                rows = data
             };
 
             return gridmodel;
