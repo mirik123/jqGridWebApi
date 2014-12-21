@@ -255,8 +255,51 @@ namespace jqGridExtension
                         break;
                     case "bw": //begins with
                         toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
-                        condition = Expression.Call(toLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) }), Expression.Constant(value));
+                        condition = Expression.Call(toLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower()));
                         break;
                     case "bn": //doesn"t begin with
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower())));
+                        break;
+                    case "nu": //is null
+                        condition = Expression.Equal(memberAccess, nullfilter);
+                        break;
+                    case "nn": //is not null
+                        condition = Expression.NotEqual(memberAccess, nullfilter);
+                        break;
+                    case "ew": //ends with
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        condition = Expression.Call(toLower, typeof(string).GetMethod("EndsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower()));
+                        break;
+                    case "en": //doesn"t end with
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("EndsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower())));
+                        break;
+                    case "in": //is in
+                    case "cn": // contains
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        condition = Expression.Call(toLower, typeof(string).GetMethod("Contains"), Expression.Constant(value.ToString().ToLower()));
+                        break;
+                    case "ni": //is not in
+                    case "nc":  //doesn't contain
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("Contains"), Expression.Constant(value.ToString().ToLower())));                        
+                        break;
+                }
 
-*** The rest of the content is truncated. ***
+                if (gridfilter.groupOp == "AND")
+                    resultCondition = resultCondition != null ? Expression.And(resultCondition, condition) : condition;
+                else
+                    resultCondition = resultCondition != null ? Expression.Or(resultCondition, condition) : condition;
+            }
+
+            if (resultCondition == null)
+                return source;
+ 
+            LambdaExpression lambda = Expression.Lambda(resultCondition, parameter);
+            MethodCallExpression result = Expression.Call(typeof(Queryable), "Where", new[] { source.ElementType }, source.Expression, lambda);
+
+            return source.Provider.CreateQuery<T>(result);
+        }
+    }
+}
