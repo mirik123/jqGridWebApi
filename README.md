@@ -43,7 +43,7 @@ namespace jqGridExtension
                     
             var  userdata = new { key = "value" };
 
-            return jqGridExtension.ApplyJqGridFilters(model, grid, userdata);
+            return jqGridHelper.ApplyJqGridFilters(model, grid, userdata);
         }
         
         [HttpPost]
