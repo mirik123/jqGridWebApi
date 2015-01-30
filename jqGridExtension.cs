@@ -14,7 +14,7 @@ using System.Web.Http.ModelBinding;
 
 namespace jqGridExtension
 {
-    public class jqGridExtension
+    public class jqGridHelper
     {
         public static GridModel ApplyJqGridFilters<T>(IQueryable<T> model, GridSettings grid, dynamic userdata = null) where T: class
         {
@@ -160,6 +160,7 @@ namespace jqGridExtension
         public int page;
         public int records;
         public dynamic[] rows;
+        public dynamic userdata;
     }
 
     public static class DynamicLinqHelper
@@ -349,7 +350,7 @@ namespace jqGridExtension
                 actionExecutedContext.Response.TryGetContentValue(out responseObject);
                 if (responseObject is IQueryable)
                 {
-                    var robj = JqGridHelper.ApplyJqGridFilters(responseObject as IQueryable<object>, grid);
+                    var robj = jqGridHelper.ApplyJqGridFilters(responseObject as IQueryable<object>, grid);
                     actionExecutedContext.Response = actionExecutedContext.Request.CreateResponse(HttpStatusCode.OK, robj);
                 }
             }
