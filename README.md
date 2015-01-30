@@ -1,8 +1,9 @@
 This package provides bridge between jqGrid (framework for creating java script dynamic tables) and ASP.NET WebApi server-side code.
 It emulates the set of the OData provider actions like filtering/sorting/ordering.
 The WebApi Controller receives filtering/sorting/ordering data from the client side and transparently appends it to LINQ-to-Entities query.
-This project is based on: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
 
+This project is inspired by: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
+It allows 2 both *ODataQueryOptions/PageResult* style as well as *EnableQueryAttribute* styles.
 ```
 using System;
 using System.Collections.Generic;
@@ -39,8 +40,38 @@ namespace jqGridExtension
                         deal_exists = deals.Contains(x.client.Id),
                         check_exists = checks.Contains(x.client.Id)
                     });
+                    
+            var  userdata = new { key = "value" };
 
-            return jqGridExtension.ApplyJqGridFilters(model, grid);
+            return jqGridExtension.ApplyJqGridFilters(model, grid, userdata);
+        }
+        
+        [HttpPost]
+        [JQGridQueryable]
+        public IQueryable GetGridData2()
+        {
+            var checks = dbcontext.Check.Select(x => x.client_id).Distinct().ToList();
+            var deals = dbcontext.Deal.Select(x => x.client_id).Distinct().ToList();
+            var model = dbcontext.Client
+                    .Join(dbcontext.ClientStatus, a => a.status, b => b.Id, (a, b) => new { client = a, status = b })
+                    .Join(dbcontext.ClientType, a => a.client.cltype, b => b.Id, (a, b) => new { client = a.client, status = a.status, type = b })
+                    .Select(x => new
+                    {
+                        id = x.client.Id,
+                        status = x.status,
+                        cltype = x.type,
+                        firstname = x.client.firstname,
+                        lastname = x.client.lastname,
+                        phone_cell = x.client.phone_cell,
+                        ssn = x.client.ssn,
+                        addr_city = x.client.addr_city,
+                        addr_street = x.client.addr_street,
+                        addr_home = x.client.addr_home,
+                        deal_exists = deals.Contains(x.client.Id),
+                        check_exists = checks.Contains(x.client.Id)
+                    });
+                    
+            return model;
         }
     }
 }
