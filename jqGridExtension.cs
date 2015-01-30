@@ -1,17 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net;
+using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Web;
 using System.Web.Http;
 using System.Web.Http.Controllers;
+using System.Web.Http.Filters;
 using System.Web.Http.ModelBinding;
 
 namespace jqGridExtension
 {
     public class jqGridExtension
     {
-        public static GridModel ApplyJqGridFilters<T>(IQueryable<T> model, GridSettings grid) where T: class
+        public static GridModel ApplyJqGridFilters<T>(IQueryable<T> model, GridSettings grid, dynamic userdata = null) where T: class
         {
             //filtering
             if (grid.IsSearch)
@@ -27,21 +32,23 @@ namespace jqGridExtension
             if (grid.PageIndex == 0)
                 grid.PageIndex = 1;
 
+            T[] data = null;
             if (grid.PageSize == 0)
-                grid.PageSize = 10;
-
-            var data = model.Skip((grid.PageIndex - 1) * grid.PageSize).Take(grid.PageSize).ToArray();
+                data = model.ToArray();
+            else
+                data = model.Skip((grid.PageIndex - 1) * grid.PageSize).Take(grid.PageSize).ToArray();
 
             //count
-            var count = model.Count();
+            var totalcount = model.Count();
 
             //converting in grid format
             var gridmodel = new GridModel()
             {
-                total = (int)Math.Ceiling((double)count / grid.PageSize),
+                total = (int)Math.Ceiling((double)totalcount / grid.PageSize),
                 page = grid.PageIndex,
-                records = count,
-                rows = data
+                records = totalcount,
+                rows = data,
+                userdata = userdata
             };
 
             return gridmodel;
@@ -71,12 +78,10 @@ namespace jqGridExtension
                 {
                     IsSearch = bool.Parse(qscoll["_search"] ?? "false"),
                     PageIndex = int.Parse(qscoll["page"] ?? "1"),
-                    PageSize = int.Parse(qscoll["rows"] ?? "10"),
+                    PageSize = int.Parse(qscoll["rows"] ?? "25"),
                     SortColumn = qscoll["sidx"] ?? "",
                     SortOrder = qscoll["sord"] ?? "asc",
-                    Where = Filter.Create(filters),
-                    client_id = int.Parse(qscoll["client_id"] ?? "0"),
-                    request_id = int.Parse(qscoll["request_id"] ?? "0")
+                    Where = Filter.Create(filters)
                 };
                 return true;
             }
@@ -111,8 +116,6 @@ namespace jqGridExtension
     [ModelBinder(typeof(GridModelBinderProvider))]
     public class GridSettings
     {
-        public int client_id { get; set; }
-        public int request_id { get; set; }
         public bool IsSearch { get; set; }
         public int PageSize { get; set; }
         public int PageIndex { get; set; }
@@ -131,6 +134,9 @@ namespace jqGridExtension
         {
             try
             {
+                if (string.IsNullOrEmpty(jsonData))
+                    return null;
+                
                 var objData = Newtonsoft.Json.JsonConvert.DeserializeObject<Filter>(jsonData);
                 return objData;
             }
@@ -184,6 +190,9 @@ namespace jqGridExtension
 
         public static IQueryable<T> Where<T>(this IQueryable<T> source, Filter gridfilter)
         {
+            if (gridfilter == null)
+                return source;
+            
             Expression resultCondition = null;
             ParameterExpression parameter = Expression.Parameter(source.ElementType, "p");
 
@@ -300,6 +309,58 @@ namespace jqGridExtension
             MethodCallExpression result = Expression.Call(typeof(Queryable), "Where", new[] { source.ElementType }, source.Expression, lambda);
 
             return source.Provider.CreateQuery<T>(result);
+        }
+    }
+    
+    public class JQGridQueryableAttribute : ActionFilterAttribute
+    {
+        public override void OnActionExecuted(HttpActionExecutedContext actionExecutedContext)
+        {
+            object responseObject;
+            if (ResponseIsValid(actionExecutedContext.Response))
+            {
+                GridSettings grid;
+                var request = actionExecutedContext.Request.Content.ReadAsStringAsync().Result;
+                if (string.IsNullOrEmpty(request))
+                    throw new HttpResponseException(actionExecutedContext.Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Request body is empty"));
+
+                var qscoll = HttpUtility.ParseQueryString(request);
+                try
+                {
+                    string filters = qscoll["filters"];
+                    if (string.IsNullOrEmpty(filters))
+                        filters = string.Format("{{\"groupOp\":\"AND\",\"rules\":[{{\"field\":\"{0}\",\"op\":\"{1}\",\"data\":\"{2}\"}}]}}", qscoll["searchField"], qscoll["searchOper"], qscoll["searchString"]);
+
+                    grid = new GridSettings()
+                    {
+                        IsSearch = bool.Parse(qscoll["_search"] ?? "false"),
+                        PageIndex = int.Parse(qscoll["page"] ?? "1"),
+                        PageSize = int.Parse(qscoll["rows"] ?? "25"),
+                        SortColumn = qscoll["sidx"] ?? "",
+                        SortOrder = qscoll["sord"] ?? "asc",
+                        Where = Filter.Create(filters),
+                    };
+                }
+                catch(Exception ex)
+                {
+                    throw new HttpResponseException(actionExecutedContext.Request.CreateErrorResponse(HttpStatusCode.BadRequest, ex.Message));
+                }
+
+                actionExecutedContext.Response.TryGetContentValue(out responseObject);
+                if (responseObject is IQueryable)
+                {
+                    var robj = JqGridHelper.ApplyJqGridFilters(responseObject as IQueryable<object>, grid);
+                    actionExecutedContext.Response = actionExecutedContext.Request.CreateResponse(HttpStatusCode.OK, robj);
+                }
+            }
+        }
+
+        private bool ResponseIsValid(HttpResponseMessage response)
+        {
+            if (response == null || response.StatusCode != HttpStatusCode.OK || !(response.Content is ObjectContent))
+                return false;
+            else
+                return true;
         }
     }
 }
