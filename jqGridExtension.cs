@@ -1,3 +1,10 @@
+/**
+ * jqGrid server-side extension for Web Api
+ * Copyright (c) 2014-2015, Mark Babayev
+ * MIT license:
+ * http://www.opensource.org/licenses/mit-license.php
+**/ 
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
