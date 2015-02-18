@@ -4,7 +4,7 @@ The WebApi Controller receives filtering/sorting/ordering data from the client s
 
 This project is inspired by: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
 It allows both *ODataQueryOptions/PageResult* style as well as *EnableQueryAttribute* styles.
-```
+````csharp
 using System;
 using System.Collections.Generic;
 using System.Linq;
