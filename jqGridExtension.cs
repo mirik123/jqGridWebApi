@@ -328,11 +328,7 @@ namespace jqGridExtension
             if (ResponseIsValid(actionExecutedContext.Response))
             {
                 GridSettings grid;
-                var request = actionExecutedContext.Request.Content.ReadAsStringAsync().Result;
-                if (string.IsNullOrEmpty(request))
-                    throw new HttpResponseException(actionExecutedContext.Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Request body is empty"));
-
-                var qscoll = HttpUtility.ParseQueryString(request);
+                var qscoll = actionExecutedContext.Request.RequestUri.ParseQueryString();
                 try
                 {
                     string filters = qscoll["filters"];
