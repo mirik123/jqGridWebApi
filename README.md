@@ -2,7 +2,7 @@ This package provides bridge between jqGrid (framework for creating java script 
 It emulates the set of the OData provider actions like filtering/sorting/ordering.
 The WebApi Controller receives filtering/sorting/ordering data from the client side and transparently appends it to LINQ-to-Entities query.
 
-This project is inspired by: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
+This project is inspired by Ilya Builuk's project: http://www.codeproject.com/Articles/58357/Using-jqGrid-s-search-toolbar-with-multiple-filter
 It allows both *ODataQueryOptions/PageResult* style as well as *EnableQueryAttribute* styles.
 ```
 using System;
