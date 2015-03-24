@@ -6,13 +6,10 @@
 **/ 
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
-using System.Reflection;
-using System.Text;
 using System.Web;
 using System.Web.Http;
 using System.Web.Http.Controllers;
@@ -27,29 +24,27 @@ namespace jqGridExtension
         {
             //filtering
             if (grid.IsSearch)
-                model = model.Where<T>(grid.Where);
+                model = model.Where(grid.Where);
 
             //sorting
             if (string.IsNullOrEmpty(grid.SortColumn))
                 grid.SortColumn = "id";
 
-            model = model.OrderBy<T>(grid.SortColumn, grid.SortOrder);
+            model = model.OrderBy(grid.SortColumn, grid.SortOrder);
 
             //paging
             if (grid.PageIndex == 0)
                 grid.PageIndex = 1;
 
-            T[] data = null;
-            if (grid.PageSize == 0)
-                data = model.ToArray();
-            else
-                data = model.Skip((grid.PageIndex - 1) * grid.PageSize).Take(grid.PageSize).ToArray();
+            T[] data = grid.PageSize == 0 ?
+                model.ToArray() :
+                model.Skip((grid.PageIndex - 1) * grid.PageSize).Take(grid.PageSize).ToArray();
 
             //count
             var totalcount = model.Count();
 
             //converting in grid format
-            var gridmodel = new GridModel()
+            var gridmodel = new GridModel
             {
                 total = (int)Math.Ceiling((double)totalcount / grid.PageSize),
                 page = grid.PageIndex,
@@ -102,14 +97,11 @@ namespace jqGridExtension
         private T GetValue<T>(ModelBindingContext bindingContext, string key, T defaulValue)
         {
             var valueResult = bindingContext.ValueProvider.GetValue(key);
-            if (valueResult != null)
-            {
-                bindingContext.ModelState.SetModelValue(key, valueResult);
-                return (T)valueResult.ConvertTo(typeof(T));
-            }
-            else
+            if (valueResult == null)
                 return defaulValue;
-        }  
+            bindingContext.ModelState.SetModelValue(key, valueResult);
+            return (T)valueResult.ConvertTo(typeof(T));
+        }
     }
 
     public class GridModelBinderProvider : ModelBinderProvider
@@ -178,15 +170,16 @@ namespace jqGridExtension
                 return query;
             
             string methodName = string.Format("OrderBy{0}", string.IsNullOrEmpty(direction) || direction.ToLower() == "asc" ? "" : "Descending");
-            ParameterExpression parameter = Expression.Parameter(query.ElementType, "p");
+            var parameter = Expression.Parameter(query.ElementType, "p");
 
             MemberExpression memberAccess = null;
             foreach (var property in sortColumn.Split('.'))
-                memberAccess = MemberExpression.Property(memberAccess ?? (parameter as Expression), property);
+                memberAccess = Expression.Property(memberAccess ?? ((Expression)parameter), property);
 
-            LambdaExpression orderByLambda = Expression.Lambda(memberAccess, parameter);
+            // !!! TODO: memberAccess can be null
+            var orderByLambda = Expression.Lambda(memberAccess, parameter);
 
-            MethodCallExpression result = Expression.Call(
+            var result = Expression.Call(
                       typeof(Queryable),
                       methodName,
                       new[] { query.ElementType, memberAccess.Type },
@@ -202,7 +195,7 @@ namespace jqGridExtension
                 return source;
             
             Expression resultCondition = null;
-            ParameterExpression parameter = Expression.Parameter(source.ElementType, "p");
+            var parameter = Expression.Parameter(source.ElementType, "p");
 
             foreach (var rule in gridfilter.rules)
             {
@@ -210,15 +203,15 @@ namespace jqGridExtension
             
                 Expression memberAccess = null;
                 foreach (var property in rule.field.Split('.'))
-                    memberAccess = MemberExpression.Property(memberAccess ?? (parameter as Expression), property);
+                    memberAccess = Expression.Property(memberAccess ?? parameter, property);
 
                 //change param value type - necessary to getting bool from string
-                Type t; 
-                object value = null;
+                Type t;
+                object value;
 
                 if (memberAccess.Type.Namespace.StartsWith("jqGridExtension"))
                 {
-                    memberAccess = MemberExpression.Property(memberAccess, "Id");
+                    memberAccess = Expression.Property(memberAccess, "Id");
                     t = memberAccess.Type;
                     if (rule.data == "-1") continue;
                 }
@@ -234,21 +227,21 @@ namespace jqGridExtension
                 catch (FormatException)
                 {
                     value = rule.data;
-                    memberAccess = Expression.Call(memberAccess, memberAccess.Type.GetMethod("ToString", System.Type.EmptyTypes));
+                    memberAccess = Expression.Call(memberAccess, memberAccess.Type.GetMethod("ToString", Type.EmptyTypes));
                 }
-            
-                ConstantExpression filter = Expression.Constant(value);
-                ConstantExpression nullfilter = Expression.Constant(null);
+
+                var filter = Expression.Constant(value);
+                var nullfilter = Expression.Constant(null);
 
                 //switch operation
-                Expression toLower = null;
+                Expression toLower;
                 Expression condition = null;
                 switch (rule.op)
                 {
                     case "eq": //equal
                         if (value is string)
                         {
-                            toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                            toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                             condition = Expression.Equal(toLower, Expression.Constant(value.ToString().ToLower()));
                         }
                         else
@@ -271,11 +264,11 @@ namespace jqGridExtension
                         condition = Expression.GreaterThanOrEqual(memberAccess, filter);
                         break;
                     case "bw": //begins with
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                         condition = Expression.Call(toLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower()));
                         break;
                     case "bn": //doesn"t begin with
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                         condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower())));
                         break;
                     case "nu": //is null
@@ -285,22 +278,22 @@ namespace jqGridExtension
                         condition = Expression.NotEqual(memberAccess, nullfilter);
                         break;
                     case "ew": //ends with
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                         condition = Expression.Call(toLower, typeof(string).GetMethod("EndsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower()));
                         break;
                     case "en": //doesn"t end with
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                         condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("EndsWith", new[] { typeof(string) }), Expression.Constant(value.ToString().ToLower())));
                         break;
                     case "in": //is in
                     case "cn": // contains
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
                         condition = Expression.Call(toLower, typeof(string).GetMethod("Contains"), Expression.Constant(value.ToString().ToLower()));
                         break;
                     case "ni": //is not in
                     case "nc":  //doesn't contain
-                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", System.Type.EmptyTypes));
-                        condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("Contains"), Expression.Constant(value.ToString().ToLower())));                        
+                        toLower = Expression.Call(memberAccess, typeof(string).GetMethod("ToLower", Type.EmptyTypes));
+                        condition = Expression.Not(Expression.Call(toLower, typeof(string).GetMethod("Contains"), Expression.Constant(value.ToString().ToLower())));
                         break;
                 }
 
@@ -312,9 +305,9 @@ namespace jqGridExtension
 
             if (resultCondition == null)
                 return source;
- 
-            LambdaExpression lambda = Expression.Lambda(resultCondition, parameter);
-            MethodCallExpression result = Expression.Call(typeof(Queryable), "Where", new[] { source.ElementType }, source.Expression, lambda);
+
+            var lambda = Expression.Lambda(resultCondition, parameter);
+            var result = Expression.Call(typeof(Queryable), "Where", new[] { source.ElementType }, source.Expression, lambda);
 
             return source.Provider.CreateQuery<T>(result);
         }
@@ -324,7 +317,6 @@ namespace jqGridExtension
     {
         public override void OnActionExecuted(HttpActionExecutedContext actionExecutedContext)
         {
-            object responseObject;
             if (ResponseIsValid(actionExecutedContext.Response))
             {
                 GridSettings grid;
@@ -350,6 +342,7 @@ namespace jqGridExtension
                     throw new HttpResponseException(actionExecutedContext.Request.CreateErrorResponse(HttpStatusCode.BadRequest, ex.Message));
                 }
 
+                object responseObject;
                 actionExecutedContext.Response.TryGetContentValue(out responseObject);
                 if (responseObject is IQueryable)
                 {
@@ -361,10 +354,7 @@ namespace jqGridExtension
 
         private bool ResponseIsValid(HttpResponseMessage response)
         {
-            if (response == null || response.StatusCode != HttpStatusCode.OK || !(response.Content is ObjectContent))
-                return false;
-            else
-                return true;
+            return response != null && response.StatusCode == HttpStatusCode.OK && response.Content is ObjectContent;
         }
     }
 }
