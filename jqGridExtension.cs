@@ -6,13 +6,11 @@
 **/ 
 
 using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
-using System.Reflection;
-using System.Text;
 using System.Web;
 using System.Web.Http;
 using System.Web.Http.Controllers;
@@ -25,6 +23,9 @@ namespace jqGridExtension
     {
         public static GridModel ApplyJqGridFilters<T>(IQueryable<T> model, GridSettings grid, dynamic userdata = null) where T: class
         {
+            if (grid == null)
+                grid = new GridSettings();
+            
             //filtering
             if (grid.IsSearch)
                 model = model.Where<T>(grid.Where);
@@ -69,12 +70,7 @@ namespace jqGridExtension
             if (bindingContext.ModelType != typeof(GridSettings))
                 return false;
 
-            //var contentFromInputStream = new StreamReader((actionContext.ControllerContext.Request.Properties["MS_HttpContext"] as System.Web.HttpContextWrapper).Request.InputStream).ReadToEnd();
-            var request = actionContext.Request.Content.ReadAsStringAsync().Result;
-            if (string.IsNullOrEmpty(request))
-                return false;
-
-            var qscoll = HttpUtility.ParseQueryString(request);
+            var qscoll = actionContext.Request.RequestUri.ParseQueryString();
             try
             {
                 string filters = qscoll["filters"];
@@ -102,13 +98,11 @@ namespace jqGridExtension
         private T GetValue<T>(ModelBindingContext bindingContext, string key, T defaulValue)
         {
             var valueResult = bindingContext.ValueProvider.GetValue(key);
-            if (valueResult != null)
-            {
-                bindingContext.ModelState.SetModelValue(key, valueResult);
-                return (T)valueResult.ConvertTo(typeof(T));
-            }
-            else
+            if (valueResult == null)
                 return defaulValue;
+            
+            bindingContext.ModelState.SetModelValue(key, valueResult);
+            return (T)valueResult.ConvertTo(typeof(T));
         }  
     }
 
@@ -174,7 +168,7 @@ namespace jqGridExtension
     {
         public static IQueryable<T> OrderBy<T>(this IQueryable<T> query, string sortColumn, string direction)
         {
-            if (string.IsNullOrEmpty(sortColumn))
+            if (string.IsNullOrEmpty(sortColumn) || query == null)
                 return query;
             
             string methodName = string.Format("OrderBy{0}", string.IsNullOrEmpty(direction) || direction.ToLower() == "asc" ? "" : "Descending");
@@ -212,15 +206,23 @@ namespace jqGridExtension
                 foreach (var property in rule.field.Split('.'))
                     memberAccess = MemberExpression.Property(memberAccess ?? (parameter as Expression), property);
 
-                //change param value type - necessary to getting bool from string
                 Type t; 
                 object value = null;
-
-                if (memberAccess.Type.Namespace.StartsWith("jqGridExtension"))
+                if (memberAccess.Type.FullName.Contains(".") && memberAccess.Type.Namespace != "System")
                 {
-                    memberAccess = MemberExpression.Property(memberAccess, "Id");
-                    t = memberAccess.Type;
                     if (rule.data == "-1") continue;
+
+                    var KeyProp = memberAccess.Type.GetProperties().FirstOrDefault(x => Attribute.IsDefined(x, typeof(KeyAttribute)));
+                    if (KeyProp == null)
+                        KeyProp = memberAccess.Type.GetProperties().FirstOrDefault(x => x.Name.ToLower() == "key" || x.Name.ToLower() == "id");
+
+                    if (KeyProp != null)
+                    {
+                        memberAccess = MemberExpression.Property(memberAccess, KeyProp.Name);
+                        t = memberAccess.Type;
+                    }
+                    else
+                        continue;
                 }
                 else
                 {
@@ -324,7 +326,6 @@ namespace jqGridExtension
     {
         public override void OnActionExecuted(HttpActionExecutedContext actionExecutedContext)
         {
-            object responseObject;
             if (ResponseIsValid(actionExecutedContext.Response))
             {
                 GridSettings grid;
@@ -350,6 +351,7 @@ namespace jqGridExtension
                     throw new HttpResponseException(actionExecutedContext.Request.CreateErrorResponse(HttpStatusCode.BadRequest, ex.Message));
                 }
 
+                object responseObject;
                 actionExecutedContext.Response.TryGetContentValue(out responseObject);
                 if (responseObject is IQueryable)
                 {
@@ -361,10 +363,7 @@ namespace jqGridExtension
 
         private bool ResponseIsValid(HttpResponseMessage response)
         {
-            if (response == null || response.StatusCode != HttpStatusCode.OK || !(response.Content is ObjectContent))
-                return false;
-            else
-                return true;
+            return response != null && response.StatusCode == HttpStatusCode.OK && response.Content is ObjectContent)
         }
     }
 }
