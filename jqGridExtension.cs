@@ -363,7 +363,7 @@ namespace jqGridExtension
 
         private bool ResponseIsValid(HttpResponseMessage response)
         {
-            return response != null && response.StatusCode == HttpStatusCode.OK && response.Content is ObjectContent)
+            return response != null && response.StatusCode == HttpStatusCode.OK && response.Content is ObjectContent;
         }
     }
 }
